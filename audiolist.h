@@ -10,14 +10,22 @@ typedef unsigned short uint16_t;
 typedef int int32_t;
 typedef unsigned int uint32_t;
 
-#define VAD_SAMPLE_PER_CHUNK   320   /** samplerate:8000, 20ms = 320bytes */
-/* vad need 320ms data */
-#define VAD_SAMPLES_PER_REQ    20    /** audio samples per vad req */
+#define VAD_SAMPLE_PER_CHUNK   160   /* samplerate:8000, 20ms = 320bytes */
+#define VAD_SAMPLES_PER_REQ    20    /* audio samples per vad req */
 
 #define VAD_DATA_LEN_PER_REQ   (VAD_SAMPLE_PER_CHUNK * VAD_SAMPLES_PER_REQ)
 #define VAD_SAMPLES_INDEX_MAX  (VAD_SAMPLES_PER_REQ - 1)
+#define VAD_SAMPLES_INDEX_MIN  (0)
 
-/** audio data */
+enum
+{
+	YNT_AUDIO_SAMPLE_INIT           = 0x00,
+    YNT_AUDIO_SAMPLE_FIRST          = 0x01,
+    YNT_AUDIO_SAMPLE_CONTINUE       = 0x02,
+    YNT_AUDIO_SAMPLE_LAST           = 0x04,
+};
+	
+/* audio data */
 typedef struct ynt_audio_buf_s
 {
 	uint8_t vad_sample[VAD_SAMPLE_PER_CHUNK];
@@ -42,8 +50,6 @@ typedef struct ynt_audio_ctl_s{
 	uint32_t            node_count;
 }ynt_audio_ctl_t;
 
-
-
 /* function prototype */
 ynt_audio_ctl_t * ynt_audiolist_create();
 
@@ -53,6 +59,11 @@ int ynt_audiolist_pop_back(ynt_audio_ctl_t *audio_ctl);
 
 void ynt_audiolist_destroy(ynt_audio_ctl_t *audio_ctl);
 
+int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, unsigned int waveLen);
+
+void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl);
+
+void ynt_audiolist_free_memory(void* pcm_addr);
 
 #endif
 
