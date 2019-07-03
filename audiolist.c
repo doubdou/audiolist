@@ -2,14 +2,18 @@
 #include <stdlib.h>
 #include "audiolist.h"
 #include <string.h>
-
+#include <pthread.h>
 
 
 /* function definition */
 
-ynt_audionode_t* ynt_audionode_create(void* waveData, unsigned int waveLen)
+ynt_audionode_t* ynt_audionode_create()
 {
-    ynt_audionode_t* node = malloc(waveLen);
+    ynt_audionode_t* node = NULL;
+	node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
+	memset(node, 0x0, sizeof(ynt_audionode_t));
+
+	return node;
 }
 
 ynt_audio_ctl_t* ynt_audiolist_create()
@@ -105,23 +109,28 @@ int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, 
         return -2;
 	}
 
-	if(waveLen != VAD_SAMPLE_PER_CHUNK){
+	if(waveLen != VAD_SAMPLE_SIZE){
         return -3;
 	}
     
-    if(audio_ctl->cur == NULL){
-		node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
-	    ynt_audiolist_push_back(audio_ctl, node);
-
+    if(audio_ctl->head == NULL){
+		//node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
+		//memset(node, 0x0, sizeof(ynt_audionode_t));
+	    ynt_audiolist_push_back(audio_ctl, ynt_audionode_create());
     }
-	if(audio_ctl->cur->blank_idx > VAD_SAMPLES_INDEX_MAX)
+	
+	if(audio_ctl->cur->offset == VAD_NODE_SIZE)
 	{
-		node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
-	    ynt_audiolist_push_back(audio_ctl, node);
+		//node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
+		//memset(node, 0x0, sizeof(ynt_audionode_t));
+	    ynt_audiolist_push_back(audio_ctl, ynt_audionode_create());
 	}
 
-	memcpy((void*)&audio_ctl->cur->audio_data.buf[audio_ctl->cur->blank_idx], waveData, waveLen);
-	audio_ctl->cur->blank_idx++;
+    memcpy(audio_ctl->cur->buff + audio_ctl->cur->offset, waveData, waveLen);
+    audio_ctl->cur->offset += waveLen;
+
+	//memcpy((void*)&audio_ctl->cur->audio_data.buf[audio_ctl->cur->blank_idx], waveData, waveLen);
+	//audio_ctl->cur->blank_idx++;
 	
     return 1; 
 }
@@ -134,7 +143,7 @@ void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl)
 	void* pcm_addr		    = NULL;
 	ynt_audionode_t* pos    = NULL;
 
-	audio_size = audio_ctl->node_count * VAD_DATA_LEN_PER_REQ;
+	audio_size = audio_ctl->node_count * VAD_NODE_SIZE;
 	ptr = malloc(audio_size);
 		
 	if(ptr == NULL) {
@@ -147,13 +156,13 @@ void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl)
 	pos = audio_ctl->head;
 	while(pos)
 	{
-		memcpy(ptr, pos->audio_data.u_data, VAD_DATA_LEN_PER_REQ);
+		memcpy(ptr, pos->buff, VAD_NODE_SIZE);
 			
 		/* move the node position */
 		pos = pos->next;
 			
 		/* move the pointer */
-		ptr += VAD_DATA_LEN_PER_REQ;
+		ptr += VAD_NODE_SIZE;
 	}
 	
     return pcm_addr;
