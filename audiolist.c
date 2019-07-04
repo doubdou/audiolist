@@ -97,10 +97,39 @@ void ynt_audiolist_destroy(ynt_audio_ctl_t *audio_ctl)
 	audio_ctl = NULL;
 }
 
-/* 将一帧音频写入链表*/
+int ynt_audionode_write(ynt_audionode_t *node, const void* waveData, unsigned int waveLen)
+{
+    if(node == NULL){
+        return -1;
+    }
+	
+	if(node->offset < 0 || node->offset >= VAD_SAMPLE_SIZE){
+        return -2;
+	}
+
+	if(waveData == NULL){
+        return -3;
+	}
+
+	if(waveLen != VAD_SAMPLE_SIZE){
+        return -4;
+	}
+    
+    memcpy(node->buff + node->offset, waveData, waveLen);
+    node->offset += waveLen;
+
+	if(node->offset < VAD_NODE_SIZE)
+	{
+        return 0;
+	}	
+	
+    return 1; 
+}
+
 int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, unsigned int waveLen)
 {
 	ynt_audionode_t* node = NULL;
+	int ret = 0;
 
     if(audio_ctl == NULL){
          return -1;
@@ -118,21 +147,20 @@ int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, 
 		//memset(node, 0x0, sizeof(ynt_audionode_t));
 	    ynt_audiolist_push_back(audio_ctl, ynt_audionode_create());
     }
-	
+
+    memcpy(audio_ctl->cur->buff + audio_ctl->cur->offset, waveData, waveLen);
+    audio_ctl->cur->offset += waveLen;
+
+    /* vad节点装满 */
 	if(audio_ctl->cur->offset == VAD_NODE_SIZE)
 	{
 		//node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
 		//memset(node, 0x0, sizeof(ynt_audionode_t));
 	    ynt_audiolist_push_back(audio_ctl, ynt_audionode_create());
+		ret = 1;
 	}
-
-    memcpy(audio_ctl->cur->buff + audio_ctl->cur->offset, waveData, waveLen);
-    audio_ctl->cur->offset += waveLen;
-
-	//memcpy((void*)&audio_ctl->cur->audio_data.buf[audio_ctl->cur->blank_idx], waveData, waveLen);
-	//audio_ctl->cur->blank_idx++;
 	
-    return 1; 
+    return ret; 
 }
 
 

@@ -8,18 +8,12 @@ typedef unsigned short uint16_t;
 typedef int int32_t;
 typedef unsigned int uint32_t;
 
-#define VAD_SAMPLE_SIZE   160  
-#define VAD_SAMPLE_COUNT  24
-#define VAD_NODE_SIZE     (VAD_SAMPLE_SIZE * VAD_SAMPLE_COUNT)
+#define VAD_SAMPLE_TIME_BASE 10
+#define VAD_SAMPLE_SIZE      160  
+#define VAD_SAMPLE_COUNT     24
+#define VAD_NODE_SIZE        (VAD_SAMPLE_SIZE * VAD_SAMPLE_COUNT)
 
-
-
-//#define VAD_SAMPLE_PER_CHUNK   160   /* samplerate:8000, 20ms = 320bytes */
-//#define VAD_SAMPLES_PER_REQ    20    /* audio samples per vad req */
-
-//#define VAD_DATA_LEN_PER_REQ   (VAD_SAMPLE_PER_CHUNK * VAD_SAMPLES_PER_REQ)
-//#define VAD_SAMPLES_INDEX_MAX  (VAD_SAMPLES_PER_REQ - 1)
-//#define VAD_SAMPLES_INDEX_MIN  (0)
+#define VAD_SPEECH_TIME_MAX  (20000)  /* 设定说话最长时间20秒 */
 
 enum
 {
@@ -44,7 +38,10 @@ typedef struct ynt_audio_ctl_s{
 }ynt_audio_ctl_t;
 
 /* function prototype */
-ynt_audio_ctl_t * ynt_audiolist_create();
+
+ynt_audionode_t* ynt_audionode_create();
+
+ynt_audio_ctl_t* ynt_audiolist_create();
 
 int ynt_audiolist_push_back(ynt_audio_ctl_t *audio_ctl, ynt_audionode_t* node);
 
@@ -57,6 +54,15 @@ int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, 
 void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl);
 
 void ynt_audiolist_free_memory(void* pcm_addr);
+
+/* 将一帧音频写入节点
+* 返回值 1:节点写满  0:节点未写满
+*/
+int ynt_audionode_write(ynt_audionode_t *node, const void* waveData, unsigned int waveLen);
+
+/* 将一帧音频写入链表*/
+int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, unsigned int waveLen);
+
 
 #endif
 
