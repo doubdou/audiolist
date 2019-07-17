@@ -7,13 +7,15 @@
  */ 
 #include "stddef.h"
 #include "audiolist.h"
+#include "ynt_globals.h"
 
 #define  YNT_CODEC_FRAME_TIME_BASE   (VAD_SAMPLE_TIME_BASE)  
 #define  YNT_CODEC_FRAME_TIME        (YNT_CODEC_FRAME_TIME_BASE * VAD_SAMPLE_COUNT)
 
-#define YNT_VAD_RESOURCE_FILE   "/usr/local/lib/vad/resources/vad.pb"
+#define  YNT_VAD_RESOURCE_FILE   "/usr/local/lib/vad/resources/vad.pb"
 
-void* vad_obj;
+#define YNT_VAD_START_OF_INPUT  1
+#define YNT_VAD_SPEECH_COMPLETE 2
 
 #ifdef __cplusplus
 extern "C"
@@ -36,8 +38,12 @@ typedef enum {
 	YNT_DETECTOR_STATE_INACTIVITY_TRANSITION /**< inactivity detection is in-progress */
 } ynt_detector_state_e;
 
+typedef void (*vad_callback)(ynt_detector_event_e, void*);
+
 /** Activity detector */
-typedef struct{
+typedef struct ynt_activity_detector_s{
+    char*            id;
+	engine_type_t    type;
 	/* voice activity (silence) level threshold */
 	size_t           level_threshold;
 	/* period of activity required to complete transition to active state */
@@ -46,18 +52,23 @@ typedef struct{
 	size_t           speech_complete_timeout;
 	/* noinput timeout */
 	size_t           noinput_timeout;
-	void*            vad_obj;
+	char*            start_input_timers;
+	//void*            vad_obj;
 	/* current state */
 	ynt_detector_state_e state;
 	/* duration spent in current state  */
 	size_t           duration;
+	int              check_flag;
+	vad_callback     func;
+	void* user_data;
 }ynt_activity_detector_t;
 
+
 /* 全局初始化生成vad对象 */
-int ynt_activity_detector_vad_object_init();
+int ynt_activity_detector_load();
 
 /* 全局释放 */
-void ynt_activity_detector_vad_object_release();
+void ynt_activity_detector_unload();
 
 /** Create activity detector */
 ynt_activity_detector_t* ynt_activity_detector_create();

@@ -9,8 +9,15 @@ typedef int int32_t;
 typedef unsigned int uint32_t;
 
 #define VAD_SAMPLE_TIME_BASE 10
+#if 0
+//mrcp的尺寸
 #define VAD_SAMPLE_SIZE      160  
 #define VAD_SAMPLE_COUNT     24
+#endif
+//freeswitch的尺寸
+#define VAD_SAMPLE_SIZE      320  
+#define VAD_SAMPLE_COUNT     12
+
 #define VAD_NODE_SIZE        (VAD_SAMPLE_SIZE * VAD_SAMPLE_COUNT)
 
 #define VAD_SPEECH_TIME_MAX  (20000)  /* 设定说话最长时间20秒 */
@@ -32,6 +39,9 @@ typedef struct ynt_audionode_s{
 }ynt_audionode_t;
 
 typedef struct ynt_audio_ctl_s{
+	unsigned int      channels; /* 声道数 */
+	unsigned int      rate;     /* 采样率 */
+	unsigned int      bits;     /* 位深     */
 	ynt_audionode_t*  head;
 	ynt_audionode_t*  cur;
 	uint32_t          node_count;
@@ -40,6 +50,8 @@ typedef struct ynt_audio_ctl_s{
 /* function prototype */
 
 ynt_audionode_t* ynt_audionode_create();
+
+void ynt_audionode_empty(ynt_audionode_t* node);
 
 ynt_audio_ctl_t* ynt_audiolist_create();
 

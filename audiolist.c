@@ -16,6 +16,11 @@ ynt_audionode_t* ynt_audionode_create()
 	return node;
 }
 
+void ynt_audionode_empty(ynt_audionode_t* node)
+{
+	memset(node, 0x0, sizeof(ynt_audionode_t));
+}
+
 ynt_audio_ctl_t* ynt_audiolist_create()
 {
 	ynt_audio_ctl_t *audio_ctl = NULL;
@@ -120,15 +125,16 @@ int ynt_audionode_write(ynt_audionode_t *node, const void* waveData, unsigned in
 
 	if(node->offset < VAD_NODE_SIZE)
 	{
+	    //node未填满返回0
         return 0;
 	}	
-	
+
+	//node填满返回1
     return 1; 
 }
 
 int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, unsigned int waveLen)
 {
-	ynt_audionode_t* node = NULL;
 	int ret = 0;
 
     if(audio_ctl == NULL){
