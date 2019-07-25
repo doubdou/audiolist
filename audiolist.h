@@ -8,19 +8,28 @@ typedef unsigned short uint16_t;
 typedef int int32_t;
 typedef unsigned int uint32_t;
 
-#define VAD_SAMPLE_TIME_BASE 10
-#if 0
+#define  USE_FREESWITCH
+
+#ifdef USE_MRCP
 //mrcp的尺寸
 #define VAD_SAMPLE_SIZE      160  
 #define VAD_SAMPLE_COUNT     24
-#endif
-//freeswitch的尺寸
+#define VAD_SAMPLE_TIME_BASE 10
+#endif
+
+#ifdef USE_FREESWITCH
 #define VAD_SAMPLE_SIZE      320  
 #define VAD_SAMPLE_COUNT     12
+#define VAD_SAMPLE_TIME_BASE 20
+#endif
 
 #define VAD_NODE_SIZE        (VAD_SAMPLE_SIZE * VAD_SAMPLE_COUNT)
+#define VAD_NODE_TIME        (VAD_SAMPLE_TIME_BASE * VAD_SAMPLE_COUNT)
 
-#define VAD_SPEECH_TIME_MAX  (20000)  /* 设定说话最长时间20秒 */
+#define VAD_SPEECH_TIME_MAX  (20000)     /* 设定说话最长时间20秒 */
+
+#define VAD_EARLY_MEDIA_TIME_MAX  (4000)  /* 设定需要的早期媒体音频最大长度为4000ms */
+//YNTDA_FRAME_TIME_MAX
 
 enum
 {
@@ -29,7 +38,6 @@ enum
     YNT_AUDIO_SAMPLE_CONTINUE       = 0x02,
     YNT_AUDIO_SAMPLE_LAST           = 0x04,
 };
-
 
 typedef struct ynt_audionode_s{
     char buff[VAD_NODE_SIZE];
