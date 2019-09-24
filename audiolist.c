@@ -21,6 +21,14 @@ void ynt_audionode_empty(ynt_audionode_t* node)
 	memset(node, 0x0, sizeof(ynt_audionode_t));
 }
 
+void ynt_audionode_destroy(ynt_audionode_t* node)
+{
+	if(node == NULL){
+       return; 
+	}
+	free(node);
+}
+
 ynt_audio_ctl_t* ynt_audiolist_create()
 {
 	ynt_audio_ctl_t *audio_ctl = NULL;
@@ -56,6 +64,9 @@ int ynt_audiolist_push_back(ynt_audio_ctl_t *audio_ctl, ynt_audionode_t* node)
 	audio_ctl->cur = node;
 	
 	audio_ctl->node_count++;
+
+    //该节点已经放入链表所以将指针置为NULL，避免误用
+	node = NULL;
 	
     return 0;  
 }

@@ -19,7 +19,7 @@ typedef unsigned int uint32_t;
 
 #ifdef USE_FREESWITCH
 #define VAD_SAMPLE_SIZE      320  
-#define VAD_SAMPLE_COUNT     12
+#define VAD_SAMPLE_COUNT     8    //调整
 #define VAD_SAMPLE_TIME_BASE 20
 #endif
 
@@ -47,9 +47,6 @@ typedef struct ynt_audionode_s{
 }ynt_audionode_t;
 
 typedef struct ynt_audio_ctl_s{
-	unsigned int      channels; /* 声道数 */
-	unsigned int      rate;     /* 采样率 */
-	unsigned int      bits;     /* 位深     */
 	ynt_audionode_t*  head;
 	ynt_audionode_t*  cur;
 	uint32_t          node_count;
@@ -60,6 +57,8 @@ typedef struct ynt_audio_ctl_s{
 ynt_audionode_t* ynt_audionode_create();
 
 void ynt_audionode_empty(ynt_audionode_t* node);
+
+void ynt_audionode_destroy(ynt_audionode_t* node);
 
 ynt_audio_ctl_t* ynt_audiolist_create();
 

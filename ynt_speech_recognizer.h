@@ -24,7 +24,8 @@ ynt_speech_recognizer_t* ynt_speech_recognizer_create();
 
 void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer);
 
+#if 0
 char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recognizer);
-
+#endif
 
 #endif

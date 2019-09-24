@@ -23,14 +23,13 @@ void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer)
     }
 }
 
+#if 0
 char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recognizer)
 {	
     char* rslt = NULL;
 	char* pcm_addr = NULL;
 	unsigned int pcm_len = 0;
-	unsigned int rate = audio_ctl->rate;
-	unsigned int bits = audio_ctl->bits;
-	unsigned int channels = audio_ctl->channels;
+
 
 #ifdef YNT_DEBUG_AUDIO_DATA
 	char filename[1024];
@@ -52,7 +51,7 @@ char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recog
 	
 	pcm_len = audio_ctl->node_count * VAD_NODE_SIZE;
 
-    rslt = ynt_asr_client_speech_recognizer(channels, rate, bits, 1, recognizer->model_id, 0, 0, NULL, pcm_addr, pcm_len);
+    rslt = ynt_asr_client_speech_recognizer(1, 8000, 16, 1, recognizer->model_id, 0, 0, NULL, pcm_addr, pcm_len);
 	//asr结果回调函数
 	recognizer->result_func(rslt, recognizer->user_data);
 	//if (NULL != rslt)
@@ -85,5 +84,5 @@ char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recog
 
     return rslt;
 }
-
+#endif
 

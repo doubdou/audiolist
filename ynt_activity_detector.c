@@ -7,38 +7,44 @@
 
 //#include "apt_log.h"
 
-void* vad_obj;
-
 int ynt_activity_detector_load()
 {
     /* 生成vad对象 */
-	vad_obj = YNT_vad_new(YNT_VAD_RESOURCE_FILE);
-	if(vad_obj == NULL){
-		return -1;
+    int ret = 0;
+	ret = ynt_vad_global_init(YNT_VAD_RESOURCE_FILE, 0);
+	if(ret < 0){
+		return ret;
 	}
     return 0;
 }
 
 void ynt_activity_detector_unload()
 {
-    if(vad_obj != NULL)
-    {
-	    YNT_vad_release(vad_obj);
-    }
+	ynt_vad_global_destroy();
 }
 
-
 /** Create activity detector */
-ynt_activity_detector_t* ynt_activity_detector_create()
+ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, int choice,int energy, float thresh)
 {
 
 	ynt_activity_detector_t *detector = (ynt_activity_detector_t *)malloc(sizeof(ynt_activity_detector_t));
+	memset(detector, 0x0, sizeof(ynt_activity_detector_t));
 	detector->level_threshold         = 12;   /* 0 .. 255 */
 	detector->recognize_timeout       = 300;  /* 0.3 s */
-	detector->speech_complete_timeout = 300;  /* 0.3 s */
+	detector->speech_complete_timeout = 800;  /* 0.3 s */
 	detector->noinput_timeout         = 5000; /* 5 s */
 	detector->duration                = 0;
+	detector->energy                  = energy;
+	detector->thresh                  = thresh;
 	detector->state = YNT_DETECTOR_STATE_INACTIVITY;
+    detector->func = choice > 0 ? ynt_activity_detector_process: ynt_activity_detector_default_process;
+
+	detector->id = ynt_vad_apply(channels, rate, 16, NumI2);
+	if(detector->id  < 0)
+	{
+	    printf("ynt_vad_apply error (channels:%u rate:%u mask:%d)\n", channels, rate, detector->id);
+	//	  ynt_activity_detector_destroy(detector);
+	}
 
 	return detector;
 }
@@ -46,6 +52,7 @@ ynt_activity_detector_t* ynt_activity_detector_create()
 void ynt_activity_detector_destroy(ynt_activity_detector_t *detector)
 {
 	if(detector != NULL){
+		ynt_vad_release(detector->id);
         free(detector);
     }
 }
@@ -97,7 +104,7 @@ ynt_detector_state_e ynt_activity_detector_state_get(ynt_activity_detector_t *de
 	return detector->state;
 }
 
-#if 0
+
 static size_t ynt_activity_detector_level_calculate(const char* data, size_t len)
 {
 	size_t sum = 0;
@@ -116,55 +123,138 @@ static size_t ynt_activity_detector_level_calculate(const char* data, size_t len
 
 	return sum / count;
 }
-#endif
 
-ynt_detector_event_e ynt_activity_detector_process(ynt_activity_detector_t *detector, ynt_audionode_t *node, uint32_t          node_count)
+ynt_detector_event_e ynt_activity_detector_default_process(void *obj, ynt_audionode_t *node, uint32_t           node_count)
 {
 	ynt_detector_event_e det_event = YNT_DETECTOR_EVENT_NONE;
+	ynt_activity_detector_t* detector = (ynt_activity_detector_t*)obj;
+	uint32_t speech_time           = 0;
+
+	unsigned int level = 0;
+	if(node->offset == VAD_NODE_SIZE) {
+		/* first, calculate current activity level of processed frame */
+		level = ynt_activity_detector_level_calculate(node->buff, node->offset);
+	}
+
+	if(detector->state == YNT_DETECTOR_STATE_INACTIVITY) {
+		if(level >= detector->level_threshold) {
+			/* start to detect activity */
+			ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_ACTIVITY_TRANSITION);
+		}
+		else {
+			detector->duration += YNT_CODEC_FRAME_TIME;
+			if(detector->duration >= detector->noinput_timeout) {
+				/* detected noinput */
+				det_event = YNT_DETECTOR_EVENT_NOINPUT;
+			}
+		}
+	}
+	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY_TRANSITION) {
+		if(level >= detector->level_threshold) {
+			detector->duration += YNT_CODEC_FRAME_TIME;
+			if(detector->duration >= detector->recognize_timeout) {
+				/* finally detected activity */
+				det_event = YNT_DETECTOR_EVENT_ACTIVITY;
+				ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_ACTIVITY);
+			}
+		}
+		else {
+			/* fallback to inactivity */
+			ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY);
+		}
+	}
+	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY) {
+		if(level >= detector->level_threshold) {
+			detector->duration += YNT_CODEC_FRAME_TIME;
+			/* 说话时长达到阈值, 主动结束 */
+		    speech_time = (node_count + 1) * YNT_CODEC_FRAME_TIME;
+			if(speech_time >= VAD_SPEECH_TIME_MAX){
+			    det_event = YNT_DETECTOR_EVENT_FORCE_INACTIVITY;
+				ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY);
+			}
+		}
+		else {
+			/* start to detect inactivity */
+			ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY_TRANSITION);
+		}
+	}
+	else if(detector->state == YNT_DETECTOR_STATE_INACTIVITY_TRANSITION) {
+		if(level >= detector->level_threshold) {
+			/* fallback to activity */
+			ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_ACTIVITY);
+		}
+		else {
+			detector->duration += YNT_CODEC_FRAME_TIME;
+			if(detector->duration >= detector->speech_complete_timeout) {
+				/* detected inactivity */
+				det_event = YNT_DETECTOR_EVENT_INACTIVITY;
+				ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY);
+			}
+		}
+	}
+
+	return det_event;
+}
+
+
+
+ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *node, uint32_t          node_count)
+{
+	ynt_detector_event_e det_event = YNT_DETECTOR_EVENT_NONE;
+	ynt_activity_detector_t* detector = (ynt_activity_detector_t*)obj;
     int vad_result         = 0;
 	uint32_t speech_time   = 0;
+	int ret                = 0;
 
 	/* first, calculate current activity level of processed frame */
-	vad_result = YNT_audio_single_vad(vad_obj, 1, 8000, 16, (void*)node->buff, VAD_NODE_SIZE, 0);
-
-	printf("YNT_audio_single_vad vad_obj(%p) result(%d)\n", vad_obj, vad_result);
-	if(detector->state == YNT_DETECTOR_STATE_INACTIVITY) {
+	//vad_result = YNT_audio_single_vad(vad_obj, 1, 8000, 16, (void*)node->buff, VAD_NODE_SIZE, 0);	
+	ret = ynt_vad_stream_check(detector->id, (void*)node->buff, VAD_NODE_SIZE, detector->energy, detector->thresh, &vad_result);
+    if(ret != 0)
+    {
+        printf("mask id:%d ynt_vad_stream_check err result:%d (node addr:%p ret:%d).\n", detector->id, vad_result, (void*)node, ret);
+		 //return det_event;
+	}else {
+	    printf("mask id:%d ynt_vad_stream_check ok result:%d (node addr:%p ret:%d).\n", detector->id, vad_result, (void*)node, ret);
+    }
+	if(detector->state == YNT_DETECTOR_STATE_INACTIVITY) {	
 		if(vad_result) {
 			/* start to detect activity */
-		    det_event = YNT_DETECTOR_EVENT_ACTIVITY;
+			//ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY_TRANSITION);
+			det_event = YNT_DETECTOR_EVENT_ACTIVITY;
 			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY);
 		}
 		else {
 			detector->duration += YNT_CODEC_FRAME_TIME;
 			if(detector->duration >= detector->noinput_timeout) {
 				/* detected noinput */
-			   printf("ynt_activity_detector_process duration(%d) noinput_timeout(%d)\n", (int)detector->duration, (int)detector->noinput_timeout);
 				det_event = YNT_DETECTOR_EVENT_NOINPUT;
 			}
 		}
 	}
-	//else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY_TRANSITION) {
-	//	if(vad_result) {
-	//		detector->duration += YNT_CODEC_FRAME_TIME;
-	//		/* default speech_duration */
-	//		if(detector->duration >= detector->speech_duration) {
-	//			/* finally detected activity */
-	//			det_event = YNT_DETECTOR_EVENT_ACTIVITY;
-	//			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY);
-	//		}
-	//	}
-	//	else {
-	//		/* fallback to inactivity */
-	//		ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_INACTIVITY);
-	//	}
-	//}
+#if 0
+	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY_TRANSITION) {
+		if(vad_result) {
+			detector->duration += YNT_CODEC_FRAME_TIME;
+			/* default speech_duration */
+			if(detector->duration >= detector->recognize_timeout) {
+				/* finally detected activity */
+				det_event = YNT_DETECTOR_EVENT_ACTIVITY;
+				ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY);
+			}
+		}
+		else {
+			/* fallback to inactivity */
+			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_INACTIVITY);
+		}
+	}
+#endif
 	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY) {
 		if(vad_result) {
 			detector->duration += YNT_CODEC_FRAME_TIME;
 			/* 说话时长达到阈值, 主动结束 */
 		    speech_time = (node_count + 1) * YNT_CODEC_FRAME_TIME;
 			if(speech_time >= VAD_SPEECH_TIME_MAX){
-			    det_event = YNT_DETECTOR_EVENT_INACTIVITY;
+			    det_event = YNT_DETECTOR_EVENT_FORCE_INACTIVITY;
 				ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY);
 			}
 		}
@@ -188,9 +278,14 @@ ynt_detector_event_e ynt_activity_detector_process(ynt_activity_detector_t *dete
 		}
 	}
 	
+	printf("ynt_activity_detector_process duration(%d) recognize_timeout(%d) speech_complete_timeout(%d) noinput_timeout(%d)\n\n", 
+	       (int)detector->duration, (int)detector->recognize_timeout, (int)detector->speech_complete_timeout, (int)detector->noinput_timeout);
 	return det_event;
 }
 
+
+
+#if 0
 /*
 ** 函数说明:对node节点做vad处理
 ** 返回值:     0: 无需asr处理  
@@ -300,5 +395,6 @@ int ynt_vad_process(ynt_activity_detector_t *detector, ynt_audio_ctl_t* audio_ct
 	}
 	return result;
 }
+#endif
 
 
