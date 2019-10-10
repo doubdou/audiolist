@@ -9,23 +9,32 @@
  * @brief ynt automatic speech recognizer
  */ 
 
+typedef struct ynt_speech_recognizer_config_s ynt_speech_recognizer_config_t;
+
+struct ynt_speech_recognizer_config_s {
+	char*           server_ip;
+	unsigned short  server_port;
+    char*           category;
+	char*           hotword;
+	int             pushgateway;
+};
+
 typedef void (*asr_result_callback)(const char*, void*);
 
 typedef struct {
     char* id;
     unsigned int model_id;
-    engine_type_t type;
+	char* hotword;
 	char* result;
 	asr_result_callback result_func;
 	void* user_data;
 }ynt_speech_recognizer_t;
 
-ynt_speech_recognizer_t* ynt_speech_recognizer_create();
+ynt_speech_recognizer_t* ynt_speech_recognizer_create(ynt_speech_recognizer_config_t* asr_conf);
 
 void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer);
 
-#if 0
 char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recognizer);
-#endif
+
 
 #endif

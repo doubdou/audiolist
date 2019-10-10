@@ -19,7 +19,7 @@ typedef unsigned int uint32_t;
 
 #ifdef USE_FREESWITCH
 #define VAD_SAMPLE_SIZE      320  
-#define VAD_SAMPLE_COUNT     8    //调整
+#define VAD_SAMPLE_COUNT     12    //调整
 #define VAD_SAMPLE_TIME_BASE 20
 #endif
 

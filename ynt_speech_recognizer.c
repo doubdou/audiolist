@@ -7,10 +7,12 @@
 #undef YNT_DEBUG_AUDIO_DATA
 
 
-ynt_speech_recognizer_t* ynt_speech_recognizer_create()
+ynt_speech_recognizer_t* ynt_speech_recognizer_create(ynt_speech_recognizer_config_t* asr_conf)
 {
    ynt_speech_recognizer_t* recognizer = (ynt_speech_recognizer_t*)malloc(sizeof(ynt_speech_recognizer_t));
    memset(recognizer, 0x0, sizeof(ynt_speech_recognizer_t));
+
+   recognizer->hotword = asr_conf->hotword;
 
    return recognizer;
 }
@@ -23,7 +25,6 @@ void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer)
     }
 }
 
-#if 0
 char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recognizer)
 {	
     char* rslt = NULL;
@@ -84,5 +85,5 @@ char* ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recog
 
     return rslt;
 }
-#endif
+
 

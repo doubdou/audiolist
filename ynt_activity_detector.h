@@ -7,7 +7,8 @@
  */ 
 #include "stddef.h"
 #include "audiolist.h"
-#include "ynt_globals.h"
+//#include "ynt_globals.h"
+#include "ynt_vad_api.h"
 
 #define  YNT_CODEC_FRAME_TIME_BASE   (VAD_SAMPLE_TIME_BASE)  
 #define  YNT_CODEC_FRAME_TIME        (YNT_CODEC_FRAME_TIME_BASE * VAD_SAMPLE_COUNT)
@@ -21,6 +22,17 @@
 extern "C"
 {
 #endif // __cplusplus
+
+
+typedef struct ynt_detector_config_s{
+    unsigned int type;  //vad类型计算方式，不配置则默认使用单纯能量值计算(0)
+    unsigned mask;      //神经网络vad对象标识，ynt_vad_apply的返回值
+    int energy;         //能量阈值 (默认设置为0)
+    float thresh;       //vad检测阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)
+    enum VadNumI win;   //缓存长度(ms)即检测窗口大小
+    int level;
+}ynt_detector_config_t;
+
 
 /** Events of activity detector */
 typedef enum {
@@ -53,7 +65,6 @@ typedef enum{
 /** Activity detector */
 typedef struct ynt_activity_detector_s{
     int              id;
-	engine_type_t    type;
 	/* voice activity (silence) level threshold */
 	size_t           level_threshold;
 	/* period of activity required to complete transition to active state */
@@ -68,8 +79,9 @@ typedef struct ynt_activity_detector_s{
 	/* duration spent in current state  */
 	size_t           duration;
 	int              check_flag;
-	int energy;      //能量阈值（默认设置为0）
-    float thresh;    //vad检测阈值（默认设置为0.5，需要加强抗噪可以调整为0.6）
+	//int energy;      //能量阈值（默认设置为0）
+    //float thresh;    //vad检测阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)
+    //int level;       //能量范围(能量大于阈值的次数未超过该数值时，认为无声，默认设置为17，该值越高，抗背景音干扰越强)
 	vad_callback     func;
 	void* user_data;
 }ynt_activity_detector_t;
@@ -82,7 +94,7 @@ int ynt_activity_detector_load();
 void ynt_activity_detector_unload();
 
 /** Create activity detector */
-ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, int choice,int energy, float thresh);
+ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, ynt_detector_config_t* conf);
 
 void ynt_activity_detector_destroy(ynt_activity_detector_t *detector);
 
