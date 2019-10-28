@@ -7,7 +7,6 @@
  */ 
 #include "stddef.h"
 #include "audiolist.h"
-//#include "ynt_globals.h"
 #include "ynt_vad_api.h"
 
 #define  YNT_CODEC_FRAME_TIME_BASE   (VAD_SAMPLE_TIME_BASE)  

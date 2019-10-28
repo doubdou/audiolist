@@ -22,6 +22,7 @@ void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer)
     if(recognizer != NULL)
     {
         free(recognizer);
+		recognizer = NULL;
     }
 }
 

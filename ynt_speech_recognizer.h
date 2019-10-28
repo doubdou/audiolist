@@ -2,7 +2,7 @@
 #define YNT_SPEECH_RECOGNIZER_H
 
 #include "audiolist.h"
-#include "ynt_globals.h"
+//#include "ynt_globals.h"
 #include "ynt_asr_client_api.h"
 /**
  * @file ynt_speech_recognizer.h

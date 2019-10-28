@@ -62,6 +62,7 @@ void ynt_activity_detector_destroy(ynt_activity_detector_t *detector)
 		    ynt_vad_release(detector->id);
 		}
 		free(detector);
+		detector = NULL;
     }
 }
 

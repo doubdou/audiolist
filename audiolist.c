@@ -27,6 +27,7 @@ void ynt_audionode_destroy(ynt_audionode_t* node)
        return; 
 	}
 	free(node);
+	node = NULL;
 }
 
 ynt_audio_ctl_t* ynt_audiolist_create()
