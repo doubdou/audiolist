@@ -27,9 +27,9 @@ typedef struct ynt_detector_config_s{
     unsigned int type;  //vad类型计算方式，不配置则默认使用单纯能量值计算(0)
     unsigned mask;      //神经网络vad对象标识，ynt_vad_apply的返回值
     int energy;         //能量阈值 (默认设置为0)
-    float thresh;       //vad检测神经网络阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)
-    //enum VadNumI win;   //缓存长度(ms)即检测窗口大小
-    int level;           //
+    float thresh;       //vad检测阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)
+    enum VadNumI win;   //缓存长度(ms)即检测窗口大小
+    int level;
 }ynt_detector_config_t;
 
 

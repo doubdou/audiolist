@@ -11,7 +11,7 @@ int ynt_activity_detector_load()
 {
     /* 生成vad对象 */
     int ret = 0;
-	ret = ynt_vad_global_init(YNT_VAD_RESOURCE_FILE);
+	ret = ynt_vad_global_init(YNT_VAD_RESOURCE_FILE, 0);
 	if(ret < 0){
 		return ret;
 	}
@@ -29,7 +29,7 @@ ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, uns
 	ynt_activity_detector_t *detector = NULL;
 
 	//入参检查
-	if(0 == channels || 0 == rate)
+	if(NULL == channels)
 	{
 	    return NULL;
 	}
@@ -54,7 +54,7 @@ ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, uns
 
 	    if(conf->type)
 		{
-		    detector->id = ynt_vad_apply(channels, rate, 16, conf->thresh, conf->energy);
+		    detector->id = ynt_vad_apply(channels, rate, 16, conf->win, conf->energy, conf->thresh, conf->level);
 			if(detector->id  < 0)
 			{
 			    printf("ynt_vad_apply error (%d %u %u)\n", detector->id, channels, rate);
@@ -236,23 +236,9 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
     int vad_result         = 0;
 	uint32_t speech_time   = 0;
 	int ret                = 0;
-    static char buffer[352];
-    char data[VAD_NODE_SIZE + 352];
 
-    memset(data, 0x0, sizeof(data));
-	//需要送检的音频长度是342ms  ，标准node长度是320ms，即需要缓存22ms数据
-    //16bytes 1ms
-    //16 * 22 = 352bytes
-    //缓存22ms数据
-    memcpy(data, node->buff, VAD_NODE_SIZE);
-	memcpy(data + VAD_NODE_SIZE, buffer, sizeof(buffer));
-    //缓存处理
-    memset(buffer, 0x0, sizeof(buffer));
-	memcpy(buffer, (void*)&node->buff[VAD_NODE_SIZE - 352], 352);
-	
 	/* first, calculate current activity level of processed frame */
-	//ret = ynt_vad_stream_check(detector->id, (void*)node->buff, VAD_NODE_SIZE, &vad_result);
-	ret = ynt_vad_stream_check(detector->id, (void*)data, (VAD_NODE_SIZE + 352), &vad_result);
+	ret = ynt_vad_stream_check(detector->id, (void*)node->buff, VAD_NODE_SIZE, &vad_result);
     if(ret != 0)
     {
         printf("mask id:%d ynt_vad_stream_check err result:%d (node addr:%p ret:%d).\n", detector->id, vad_result, (void*)node, ret);
@@ -265,8 +251,8 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 	if(detector->state == YNT_DETECTOR_STATE_INACTIVITY) {	
 		if(vad_result) {
 			/* start to detect activity */
-			//ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY_TRANSITION);
-			det_event = YNT_DETECTOR_EVENT_ACTIVITY;
+			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY_TRANSITION);
+			//det_event = YNT_DETECTOR_EVENT_ACTIVITY;
 			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY);
 		}
 		else {
@@ -277,7 +263,6 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 			}
 		}
 	}
-#if 0
 	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY_TRANSITION) {
 		if(vad_result) {
 			detector->duration += YNT_CODEC_FRAME_TIME;
@@ -293,7 +278,6 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_INACTIVITY);
 		}
 	}
-#endif
 	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY) {
 		if(vad_result) {
 			detector->duration += YNT_CODEC_FRAME_TIME;

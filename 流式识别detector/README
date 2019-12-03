@@ -1,0 +1,6 @@
+流式识别，不缓存音频，每取得一帧音频，就进行检测
+vad状态机有四个状态：
+	activity_transition
+	activity
+    inactivity_transition
+    inactivity
