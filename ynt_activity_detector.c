@@ -37,7 +37,7 @@ ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, uns
 	detector = (ynt_activity_detector_t *)malloc(sizeof(ynt_activity_detector_t));
 	memset(detector, 0x0, sizeof(ynt_activity_detector_t));
 
-	detector->level_threshold         = 120;   
+	detector->level_threshold         = conf->energy;   
 	detector->recognize_timeout       = 300;  
 	detector->speech_complete_timeout = 800;  
 	detector->noinput_timeout         = 5000; 
@@ -46,23 +46,30 @@ ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, uns
 
     if(conf == NULL)
     {
-        detector->func = ynt_activity_detector_default_process;
+        //detector->func = ynt_activity_detector_default_process;
 		detector->id = -1;
     }
-    else {
-		detector->func = conf->type > 0 ? ynt_activity_detector_process: ynt_activity_detector_default_process;
-
-	    if(conf->type)
+    else if(conf->type) 
+	{
+		//detector->func = conf->type > 0 ? ynt_activity_detector_process: ynt_activity_detector_default_process;
+	   //if(conf->type)
+		//{
+	    detector->id = ynt_vad_apply(channels, rate, 16, conf->thresh, conf->energy);
+		//mask申请失败
+		if(detector->id < 0)
 		{
-		    detector->id = ynt_vad_apply(channels, rate, 16, conf->thresh, conf->energy);
-			if(detector->id  < 0)
-			{
-			    printf("ynt_vad_apply error (%d %u %u)\n", detector->id, channels, rate);
-			}
-	    }else {
-		    detector->id = -1;
-	    }
-    }
+		    printf("ynt_vad_apply error (%d %u %u)\n", detector->id, channels, rate);
+		}
+	   // }else {
+	   //    detector->id = -1;
+	   // }
+    }else {
+	    detector->id = -1;
+	}
+
+	//根据
+    detector->func = detector->id >= 0 ? ynt_activity_detector_process: ynt_activity_detector_default_process;
+
 	return detector;
 }
 
@@ -162,6 +169,7 @@ ynt_detector_event_e ynt_activity_detector_default_process(void *obj, ynt_audion
     {
         vad_result = 1;
     }
+	//printf("----------level:%d    level_threshold:%d --------\n", level, detector->level_threshold);
 
 	if(detector->state == YNT_DETECTOR_STATE_INACTIVITY) {
 		if(vad_result) {
@@ -259,7 +267,7 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 		 //return det_event;
 	}
     //else {
-	//    printf("mask id:%d ynt_vad_stream_check ok result:%d (node addr:%p ret:%d).\n", detector->id, vad_result, (void*)node, ret);
+	//    printf("mask id:%d ynt_vad_stream_check ok result:%d (node addr:%p ret:%d offset:%d).\n", detector->id, vad_result, (void*)node, ret, node->offset);
     //}
 	
 	if(detector->state == YNT_DETECTOR_STATE_INACTIVITY) {	

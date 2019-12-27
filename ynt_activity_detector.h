@@ -25,11 +25,8 @@ extern "C"
 
 typedef struct ynt_detector_config_s{
     unsigned int type;  //vad类型计算方式，不配置则默认使用单纯能量值计算(0)
-    unsigned mask;      //神经网络vad对象标识，ynt_vad_apply的返回值
     int energy;         //能量阈值 (默认设置为0)
-    float thresh;       //vad检测神经网络阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)
-    //enum VadNumI win;   //缓存长度(ms)即检测窗口大小
-    int level;           //
+    float thresh;       //vad检测神经网络阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)       
 }ynt_detector_config_t;
 
 
@@ -114,9 +111,15 @@ void ynt_activity_detector_silence_timeout_set(ynt_activity_detector_t *detector
 
 ynt_detector_state_e ynt_activity_detector_state_get(ynt_activity_detector_t *detector);
 
+/**
+* node_count 检测已说话的个数  置为0不生效
+*/
 /** Process current audio node, return detected event if any */
 ynt_detector_event_e ynt_activity_detector_default_process(void* obj, ynt_audionode_t *node, uint32_t node_count);
 
+/**
+* node_count 检测已说话的个数  置为0不生效
+*/
 ynt_detector_event_e ynt_activity_detector_process(void* obj, ynt_audionode_t *node, uint32_t node_count);
 #if 0
 int ynt_vad_process(ynt_activity_detector_t *detector, ynt_audio_ctl_t* audio_ctl, ynt_audionode_t *audio_node);
