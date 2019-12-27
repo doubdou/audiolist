@@ -13,7 +13,7 @@ typedef unsigned int uint32_t;
 #ifdef USE_MRCP
 //mrcp的尺寸
 #define VAD_SAMPLE_SIZE      160  
-#define VAD_SAMPLE_COUNT     24
+#define VAD_SAMPLE_COUNT     32
 #define VAD_SAMPLE_TIME_BASE 10
 #endif
 
@@ -55,6 +55,10 @@ typedef struct ynt_audio_ctl_s{
 /* function prototype */
 
 ynt_audionode_t* ynt_audionode_create();
+
+int ynt_audionode_insert(ynt_audionode_t* node, void* data, unsigned int size);
+
+int ynt_audionode_is_full(ynt_audionode_t* node);
 
 void ynt_audionode_empty(ynt_audionode_t* node);
 

@@ -16,6 +16,39 @@ ynt_audionode_t* ynt_audionode_create()
 	return node;
 }
 
+int ynt_audionode_insert(ynt_audionode_t* node, void* data, unsigned int size)
+{
+    if(node == NULL || data == NULL || size != VAD_SAMPLE_SIZE)
+    {
+        return -1;
+    }
+	
+   	/* vad节点装满 */
+	if(node->offset >= VAD_NODE_SIZE)
+	{
+        return -2;
+	}	
+	memcpy(node->buff + node->offset, data, size);
+	node->offset += size;
+
+	return 0;
+}
+
+int ynt_audionode_is_full(ynt_audionode_t* node)
+{
+    if(node == NULL)
+    {  
+        return -1;
+    }
+
+	if(node->offset != VAD_NODE_SIZE)
+	{
+	    return -2;
+	}
+
+	return 0;
+}
+
 void ynt_audionode_empty(ynt_audionode_t* node)
 {
 	memset(node, 0x0, sizeof(ynt_audionode_t));
