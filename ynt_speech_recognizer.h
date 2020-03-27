@@ -39,8 +39,8 @@ int ynt_speech_recognizer_normalize_set(ynt_speech_recognizer_t* recognizer, uns
 ynt_speech_recognizer_t* ynt_speech_recognizer_create(const void* asr_client, ynt_speech_recognizer_config_t* asr_conf);
 
 void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer);
-
+#if 0
 int ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recognizer);
-
+#endif
 
 #endif

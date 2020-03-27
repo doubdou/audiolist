@@ -50,7 +50,7 @@ void ynt_speech_recognizer_destroy(ynt_speech_recognizer_t* recognizer)
     }
 }
 
-
+#if 0
 int ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recognizer)
 {	
     char* rslt              = NULL;
@@ -76,7 +76,7 @@ int ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recogni
 		return -1;
 	}
 	
-	pcm_len = audio_ctl->node_count * VAD_NODE_SIZE;
+	pcm_len = audio_ctl->node_count * audio_ctl->node_size;
 
 #ifdef YNT_DEBUG_AUDIO_DATA
 	/* file to write to */
@@ -127,5 +127,5 @@ int ynt_asr_process(ynt_audio_ctl_t* audio_ctl, ynt_speech_recognizer_t* recogni
 
     return 0;
 }
-
+#endif
 

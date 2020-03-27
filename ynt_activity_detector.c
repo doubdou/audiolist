@@ -24,7 +24,7 @@ void ynt_activity_detector_unload()
 }
 
 /** Create activity detector */
-ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, ynt_detector_config_t* conf)
+ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, int ptime, ynt_detector_config_t* conf)
 {
 	ynt_activity_detector_t *detector = NULL;
 
@@ -38,6 +38,8 @@ ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, uns
 	memset(detector, 0x0, sizeof(ynt_activity_detector_t));
 
 	detector->level_threshold         = conf->energy;   
+	detector->base_time               = conf->base_time;
+	detector->ptime                   = ptime;
 	detector->recognize_timeout       = 300;  
 	detector->speech_complete_timeout = 800;  
 	detector->noinput_timeout         = 5000; 
@@ -161,7 +163,7 @@ ynt_detector_event_e ynt_activity_detector_default_process(void *obj, ynt_audion
 	int vad_result                    = 0;
 
 	unsigned int level = 0;
-	if(node->offset == VAD_NODE_SIZE) {
+	if(node->offset == node->node_size) {
 		/* first, calculate current activity level of processed frame */
 		level = ynt_activity_detector_level_calculate(node->buff, node->offset);
 	}
@@ -179,7 +181,7 @@ ynt_detector_event_e ynt_activity_detector_default_process(void *obj, ynt_audion
 			ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_ACTIVITY);
 		}
 		else {
-			detector->duration += YNT_CODEC_FRAME_TIME;
+			detector->duration += detector->base_time;
 			if(detector->duration >= detector->noinput_timeout) {
 				/* detected noinput */
 				det_event = YNT_DETECTOR_EVENT_NOINPUT;
@@ -204,9 +206,9 @@ ynt_detector_event_e ynt_activity_detector_default_process(void *obj, ynt_audion
 #endif
 	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY) {
 		if(vad_result) {
-			detector->duration += YNT_CODEC_FRAME_TIME;
+			detector->duration += detector->base_time;
 			/* 说话时长达到阈值, 主动结束 */
-		    speech_time = (node_count + 1) * YNT_CODEC_FRAME_TIME;
+		    speech_time = (node_count + 1) * detector->base_time;
 			if(speech_time >= VAD_SPEECH_TIME_MAX){
 			    det_event = YNT_DETECTOR_EVENT_FORCE_INACTIVITY;
 				ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY);
@@ -223,7 +225,7 @@ ynt_detector_event_e ynt_activity_detector_default_process(void *obj, ynt_audion
 			ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_ACTIVITY);
 		}
 		else {
-			detector->duration += YNT_CODEC_FRAME_TIME;
+			detector->duration += detector->base_time;
 			if(detector->duration >= detector->speech_complete_timeout) {
 				/* detected inactivity */
 				det_event = YNT_DETECTOR_EVENT_INACTIVITY;
@@ -245,22 +247,24 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 	uint32_t speech_time   = 0;
 	int ret                = 0;
     static char buffer[352];
-    char data[VAD_NODE_SIZE + 352];
+    //char data[VAD_NODE_SIZE + 352];
+    char* data = NULL;
 
-    memset(data, 0x0, sizeof(data));
+	data = calloc(1, node->node_size + 352);
+
+	memcpy(data, node->buff, node->node_size);
 	//需要送检的音频长度是342ms  ，标准node长度是320ms，即需要缓存22ms数据
     //16bytes 1ms
     //16 * 22 = 352bytes
     //缓存22ms数据
-    memcpy(data, node->buff, VAD_NODE_SIZE);
-	memcpy(data + VAD_NODE_SIZE, buffer, sizeof(buffer));
-    //缓存处理
+	memcpy(data + node->node_size, buffer, sizeof(buffer));
+    //缓存刷新处理
     memset(buffer, 0x0, sizeof(buffer));
-	memcpy(buffer, (void*)&node->buff[VAD_NODE_SIZE - 352], 352);
+	memcpy(buffer, (void*)&node->buff[node->node_size - 352], 352);
 	
 	/* first, calculate current activity level of processed frame */
 	//ret = ynt_vad_stream_check(detector->id, (void*)node->buff, VAD_NODE_SIZE, &vad_result);
-	ret = ynt_vad_stream_check(detector->id, (void*)data, (VAD_NODE_SIZE + 352), &vad_result);
+	ret = ynt_vad_stream_check(detector->id, (void*)data, (node->node_size + 352), &vad_result);
     if(ret != 0)
     {
         printf("mask id:%d ynt_vad_stream_check err result:%d (node addr:%p ret:%d).\n", detector->id, vad_result, (void*)node, ret);
@@ -278,7 +282,7 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY);
 		}
 		else {
-			detector->duration += YNT_CODEC_FRAME_TIME;
+			detector->duration += detector->base_time;
 			if(detector->duration >= detector->noinput_timeout) {
 				/* detected noinput */
 				det_event = YNT_DETECTOR_EVENT_NOINPUT;
@@ -304,9 +308,9 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 #endif
 	else if(detector->state == YNT_DETECTOR_STATE_ACTIVITY) {
 		if(vad_result) {
-			detector->duration += YNT_CODEC_FRAME_TIME;
+			detector->duration += detector->base_time;
 			/* 说话时长达到阈值, 主动结束 */
-		    speech_time = (node_count + 1) * YNT_CODEC_FRAME_TIME;
+		    speech_time = (node_count + 1) * detector->base_time;
 			if(speech_time >= VAD_SPEECH_TIME_MAX){
 			    det_event = YNT_DETECTOR_EVENT_FORCE_INACTIVITY;
 				ynt_activity_detector_state_change(detector, YNT_DETECTOR_STATE_INACTIVITY);
@@ -323,7 +327,7 @@ ynt_detector_event_e ynt_activity_detector_process(void *obj, ynt_audionode_t *n
 			ynt_activity_detector_state_change(detector,YNT_DETECTOR_STATE_ACTIVITY);
 		}
 		else {
-			detector->duration += YNT_CODEC_FRAME_TIME;
+			detector->duration += detector->base_time;
 			if(detector->duration >= detector->speech_complete_timeout) {
 				/* detected inactivity */
 				det_event = YNT_DETECTOR_EVENT_INACTIVITY;

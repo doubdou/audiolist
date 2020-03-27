@@ -22,11 +22,11 @@ extern "C"
 {
 #endif // __cplusplus
 
-
 typedef struct ynt_detector_config_s{
-    unsigned int type;  //vad类型计算方式，不配置则默认使用单纯能量值计算(0)
-    int energy;         //能量阈值 (默认设置为0)
-    float thresh;       //vad检测神经网络阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)       
+    unsigned int type;  // vad类型计算方式，不配置则默认使用单纯能量值计算(0)
+    int energy;         // 能量阈值 (默认设置为0)
+    float thresh;       // vad检测神经网络阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)   
+    int base_time;      // 神经网络vad功能参数，单位ms，vad检测的基准音频时长(默认320ms)
 }ynt_detector_config_t;
 
 
@@ -78,6 +78,8 @@ typedef struct ynt_activity_detector_s{
 	//int energy;      //能量阈值（默认设置为0）
     //float thresh;    //vad检测阈值(默认设置为0.5，需要加强抗噪可以调整为0.6)
     //int level;       //能量范围(能量大于阈值的次数未超过该数值时，认为无声，默认设置为17，该值越高，抗背景音干扰越强)
+    int              base_time;
+    int              ptime;
 	vad_callback     func;
 	void* user_data;
 }ynt_activity_detector_t;
@@ -90,7 +92,7 @@ int ynt_activity_detector_load();
 void ynt_activity_detector_unload();
 
 /** Create activity detector */
-ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, ynt_detector_config_t* conf);
+ynt_activity_detector_t* ynt_activity_detector_create(unsigned int channels, unsigned int rate, int ptime, ynt_detector_config_t* conf);
 
 void ynt_activity_detector_destroy(ynt_activity_detector_t *detector);
 

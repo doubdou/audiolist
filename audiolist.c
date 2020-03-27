@@ -7,15 +7,19 @@
 
 /* function definition */
 
-ynt_audionode_t* ynt_audionode_create()
+ynt_audionode_t* ynt_audionode_create(ynt_audio_ctl_t *audio_ctl)
 {
     ynt_audionode_t* node = NULL;
-	node = (ynt_audionode_t*)malloc(sizeof(ynt_audionode_t));
+	ynt_audionode_pool_dynamic_t* dynamic_pool = audio_ctl->dynamic_pool;
+	node = (ynt_audionode_t*)malloc(dynamic_pool->size);
 	memset(node, 0x0, sizeof(ynt_audionode_t));
+	
+	node->node_size = audio_ctl->node_size;
 
 	return node;
 }
 
+#if 0
 int ynt_audionode_insert(ynt_audionode_t* node, void* data, unsigned int size)
 {
     if(node == NULL || data == NULL || size != VAD_SAMPLE_SIZE)
@@ -33,25 +37,32 @@ int ynt_audionode_insert(ynt_audionode_t* node, void* data, unsigned int size)
 
 	return 0;
 }
+#endif
 
-int ynt_audionode_is_full(ynt_audionode_t* node)
+audiolist_bool_t ynt_audionode_is_full(ynt_audionode_t* node)
 {
     if(node == NULL)
     {  
-        return -1;
+        return TRUE;
     }
 
-	if(node->offset != VAD_NODE_SIZE)
+    //节点未装满，返回false
+	if(node->offset < node->node_size)
 	{
-	    return -2;
+	    return FALSE;
 	}
 
-	return 0;
+	//节点装满，返回 true
+	return TRUE;
 }
 
-void ynt_audionode_empty(ynt_audionode_t* node)
+void ynt_audionode_clear(ynt_audionode_t* node)
 {
-	memset(node, 0x0, sizeof(ynt_audionode_t));
+	node->offset = 0;
+	node->next   = NULL;
+	node->pre    = NULL;
+
+	//memset(node, 0x0, sizeof(ynt_audionode_t));
 }
 
 void ynt_audionode_destroy(ynt_audionode_t* node)
@@ -63,17 +74,24 @@ void ynt_audionode_destroy(ynt_audionode_t* node)
 	node = NULL;
 }
 
-ynt_audio_ctl_t* ynt_audiolist_create()
+ynt_audio_ctl_t* ynt_audiolist_create(uint32_t base_time, uint32_t microseconds_per_packet, uint32_t decoded_bytes_per_packet)
 {
+    uint32_t node_size = base_time / microseconds_per_packet * decoded_bytes_per_packet;
 	ynt_audio_ctl_t *audio_ctl = NULL;
+	ynt_audionode_pool_dynamic_t* dynamic_pool = NULL;
 
 	audio_ctl = (ynt_audio_ctl_t*)malloc(sizeof(ynt_audio_ctl_t));
-
     memset(audio_ctl, 0x0, sizeof(ynt_audio_ctl_t));
+	dynamic_pool = (ynt_audionode_pool_dynamic_t*)malloc(sizeof(ynt_audionode_pool_dynamic_t));
+	dynamic_pool->size = node_size + sizeof(ynt_audionode_t);
+	audio_ctl->dynamic_pool = dynamic_pool;
+	
+	audio_ctl->microseconds_per_packet = microseconds_per_packet;
+	audio_ctl->decoded_bytes_per_packet = decoded_bytes_per_packet;
+	audio_ctl->node_size = node_size;
 
     return audio_ctl;
 }
-
 
 int ynt_audiolist_push_back(ynt_audio_ctl_t *audio_ctl, ynt_audionode_t* node)
 {
@@ -129,20 +147,42 @@ int ynt_audiolist_pop_back(ynt_audio_ctl_t *audio_ctl)
 
 }
 
-
-void ynt_audiolist_destroy(ynt_audio_ctl_t *audio_ctl)
+audiolist_bool_t ynt_audiolist_clear_node(ynt_audio_ctl_t *audio_ctl)
 {
-  
     ynt_audionode_t* node = NULL;
+
+    if(!audio_ctl)
+		return FALSE;
     
     while(audio_ctl->node_count)
     {
-      node = audio_ctl->head;
-	  audio_ctl->head = audio_ctl->head->next;
-	  free(node);
-	  audio_ctl->node_count--;
+		node = audio_ctl->head;
+		audio_ctl->head = audio_ctl->head->next;
+		free(node);
+		audio_ctl->node_count--;
     }
 
+    audio_ctl->head = NULL;
+    audio_ctl->cur  = NULL;
+	
+	return TRUE;
+}
+
+void ynt_audiolist_destroy(ynt_audio_ctl_t *audio_ctl)
+{
+    ynt_audionode_t* node = NULL;
+
+    if(!audio_ctl)
+		return;
+    
+    while(audio_ctl->node_count)
+    {
+		node = audio_ctl->head;
+		audio_ctl->head = audio_ctl->head->next;
+		free(node);
+		audio_ctl->node_count--;
+    }
+    free(audio_ctl->dynamic_pool);
 	free(audio_ctl);
 	audio_ctl = NULL;
 }
@@ -153,7 +193,7 @@ int ynt_audionode_write(ynt_audionode_t *node, const void* waveData, unsigned in
         return -1;
     }
 	
-	if(node->offset < 0 || node->offset >= VAD_SAMPLE_SIZE){
+	if(node->offset < 0){
         return -2;
 	}
 
@@ -161,23 +201,17 @@ int ynt_audionode_write(ynt_audionode_t *node, const void* waveData, unsigned in
         return -3;
 	}
 
-	if(waveLen != VAD_SAMPLE_SIZE){
+	if((node->offset + waveLen) > node->node_size){
         return -4;
 	}
     
     memcpy(node->buff + node->offset, waveData, waveLen);
     node->offset += waveLen;
-
-	if(node->offset < VAD_NODE_SIZE)
-	{
-	    //node未填满返回0
-        return 0;
-	}	
-
-	//node填满返回1
-    return 1; 
+	
+    return 0; 
 }
 
+#if 0
 int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, unsigned int waveLen)
 {
 	int ret = 0;
@@ -213,7 +247,7 @@ int ynt_audiolist_write_frame(ynt_audio_ctl_t *audio_ctl, const void* waveData, 
 	
     return ret; 
 }
-
+#endif
 
 void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl)
 {
@@ -222,7 +256,7 @@ void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl)
 	void* pcm_addr		    = NULL;
 	ynt_audionode_t* pos    = NULL;
 
-	audio_size = audio_ctl->node_count * VAD_NODE_SIZE;
+	audio_size = audio_ctl->node_count * audio_ctl->node_size;
 	ptr = malloc(audio_size);
 		
 	if(ptr == NULL) {
@@ -235,13 +269,13 @@ void* ynt_audiolist_merge_memory(ynt_audio_ctl_t *audio_ctl)
 	pos = audio_ctl->head;
 	while(pos)
 	{
-		memcpy(ptr, pos->buff, VAD_NODE_SIZE);
+		memcpy(ptr, pos->buff, audio_ctl->node_size);
 			
 		/* move the node position */
 		pos = pos->next;
 			
 		/* move the pointer */
-		ptr += VAD_NODE_SIZE;
+		ptr += audio_ctl->node_size;
 	}
 	
     return pcm_addr;
